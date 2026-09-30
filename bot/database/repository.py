@@ -205,6 +205,16 @@ async def remove_force_sub_channel(chat_id: str) -> bool:
         return True
 
 
+async def remove_force_sub_channel_by_id(channel_id: int) -> bool:
+    async with async_session() as session:
+        channel = await session.get(ForceSubChannel, channel_id)
+        if channel is None:
+            return False
+        await session.delete(channel)
+        await session.commit()
+        return True
+
+
 async def list_force_sub_channels() -> list[ForceSubChannel]:
     async with async_session() as session:
         result = await session.execute(select(ForceSubChannel))

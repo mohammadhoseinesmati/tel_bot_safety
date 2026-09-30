@@ -7,11 +7,14 @@ from aiogram.types import CallbackQuery, Message
 
 from bot.database import repository as repo
 from bot.keyboards.inline import start_menu
+from bot.utils.permissions import is_owner
 
 router = Router(name="start")
 
 HELP_TEXT = (
     "📜 <b>راهنمای ربات</b>\n\n"
+    "🛠 برای مالک ربات: دستور /panel یک پنل مدیریت با دکمه باز می‌کند "
+    "(کاربران مجاز، کانال‌های عضویت اجباری، ارسال تبلیغ، آمار).\n\n"
     "دستورات مدیریتی گروه (فقط برای ادمین‌ها):\n"
     "/settings - تنظیمات محافظتی گروه\n"
     "/ban /unban /mute /unmute /kick - مدیریت اعضا (ریپلای روی پیام کاربر)\n"
@@ -34,7 +37,7 @@ async def cmd_start(message: Message, bot: Bot) -> None:
         "با این ربات می‌توانید از گروه خود در برابر اسپم، فلاد، لینک‌های مزاحم، کلمات نامناسب و اعضای مزاحم "
         "محافظت کنید.\n\n"
         "برای شروع، یکی از گزینه‌های زیر را انتخاب کنید:",
-        reply_markup=start_menu(me.username),
+        reply_markup=start_menu(me.username, is_owner(message.from_user.id)),
     )
 
 
@@ -74,5 +77,5 @@ async def check_subscription(callback: CallbackQuery, bot: Bot) -> None:
     me = await bot.get_me()
     await callback.message.answer(
         "👋 خوش آمدید! از منوی زیر گزینه مورد نظر را انتخاب کنید:",
-        reply_markup=start_menu(me.username),
+        reply_markup=start_menu(me.username, is_owner(callback.from_user.id)),
     )

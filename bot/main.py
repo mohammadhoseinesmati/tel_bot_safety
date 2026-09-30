@@ -27,6 +27,7 @@ async def _set_commands(bot: Bot) -> None:
         [
             BotCommand(command="start", description="شروع کار با ربات"),
             BotCommand(command="help", description="راهنمای ربات"),
+            BotCommand(command="panel", description="پنل مدیریت ربات (فقط مالک)"),
         ]
     )
 

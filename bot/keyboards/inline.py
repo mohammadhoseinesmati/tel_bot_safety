@@ -5,14 +5,16 @@ from typing import Sequence
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from bot.database.models import ForceSubChannel, Group
+from bot.database.models import ForceSubChannel, Group, Whitelist
 
 
-def start_menu(bot_username: str) -> InlineKeyboardMarkup:
+def start_menu(bot_username: str, is_owner: bool = False) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="➕ افزودن ربات به گروه", url=f"https://t.me/{bot_username}?startgroup=true")
     builder.button(text="📞 پشتیبانی", callback_data="support:start")
     builder.button(text="📜 راهنما", callback_data="help:show")
+    if is_owner:
+        builder.button(text="🛠 پنل مدیریت ربات", callback_data="panel:main")
     builder.adjust(1)
     return builder.as_markup()
 
@@ -43,5 +45,52 @@ def group_settings_keyboard(group: Group) -> InlineKeyboardMarkup:
     builder.button(text=f"قفل ویدیو: {onoff(group.lock_video)}", callback_data="gs:lock_video")
     builder.button(text=f"قفل استیکر: {onoff(group.lock_sticker)}", callback_data="gs:lock_sticker")
     builder.button(text="✖️ بستن", callback_data="gs:close")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def owner_panel_main() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="👥 کاربران مجاز به افزودن ربات", callback_data="panel:whitelist")
+    builder.button(text="📢 کانال‌های عضویت اجباری", callback_data="panel:channels")
+    builder.button(text="📣 ارسال تبلیغ به گروه‌ها", callback_data="panel:broadcast")
+    builder.button(text="📊 آمار ربات", callback_data="panel:stats")
+    builder.button(text="✖️ بستن", callback_data="panel:close")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def owner_whitelist_keyboard(items: Sequence[Whitelist]) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for item in items:
+        builder.button(text=f"❌ حذف {item.user_id}", callback_data=f"panel:wl_del:{item.user_id}")
+    builder.button(text="➕ افزودن کاربر جدید", callback_data="panel:wl_add")
+    builder.button(text="🔙 بازگشت", callback_data="panel:main")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def owner_channels_keyboard(channels: Sequence[ForceSubChannel]) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for channel in channels:
+        label = channel.title or channel.chat_id
+        builder.button(text=f"❌ حذف {label}", callback_data=f"panel:ch_del:{channel.id}")
+    builder.button(text="➕ افزودن کانال", callback_data="panel:ch_add")
+    builder.button(text="🔙 بازگشت", callback_data="panel:main")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def owner_broadcast_confirm_keyboard(count: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text=f"✅ ارسال به {count} گروه", callback_data="panel:bc_confirm")
+    builder.button(text="❌ لغو", callback_data="panel:bc_cancel")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def back_to_panel_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🔙 بازگشت", callback_data="panel:main")
     builder.adjust(1)
     return builder.as_markup()
