@@ -5,7 +5,7 @@ from typing import Sequence
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from bot.database.models import ForceSubChannel, Group, Whitelist
+from bot.database.models import BlockedInstaller, ForceSubChannel, Group
 
 
 def start_menu(bot_username: str, is_owner: bool = False) -> InlineKeyboardMarkup:
@@ -51,7 +51,8 @@ def group_settings_keyboard(group: Group) -> InlineKeyboardMarkup:
 
 def owner_panel_main() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="👥 کاربران مجاز به افزودن ربات", callback_data="panel:whitelist")
+    builder.button(text="📋 گروه‌های ربات", callback_data="panel:groups")
+    builder.button(text="🚫 کاربران مسدود شده", callback_data="panel:blocked")
     builder.button(text="📢 کانال‌های عضویت اجباری", callback_data="panel:channels")
     builder.button(text="📣 ارسال تبلیغ به گروه‌ها", callback_data="panel:broadcast")
     builder.button(text="📊 آمار ربات", callback_data="panel:stats")
@@ -60,11 +61,21 @@ def owner_panel_main() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def owner_whitelist_keyboard(items: Sequence[Whitelist]) -> InlineKeyboardMarkup:
+def owner_groups_keyboard(groups: Sequence[Group]) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for group in groups:
+        label = group.title or str(group.id)
+        builder.button(text=f"❌ خروج از «{label}»", callback_data=f"panel:grp_leave:{group.id}")
+    builder.button(text="🔙 بازگشت", callback_data="panel:main")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def owner_blocked_keyboard(items: Sequence[BlockedInstaller]) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for item in items:
-        builder.button(text=f"❌ حذف {item.user_id}", callback_data=f"panel:wl_del:{item.user_id}")
-    builder.button(text="➕ افزودن کاربر جدید", callback_data="panel:wl_add")
+        builder.button(text=f"✅ رفع مسدودیت {item.user_id}", callback_data=f"panel:bl_del:{item.user_id}")
+    builder.button(text="🚫 مسدود کردن کاربر جدید", callback_data="panel:bl_add")
     builder.button(text="🔙 بازگشت", callback_data="panel:main")
     builder.adjust(1)
     return builder.as_markup()

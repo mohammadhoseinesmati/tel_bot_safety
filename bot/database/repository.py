@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import select
 
 from bot.database.db import async_session
-from bot.database.models import BadWord, ForceSubChannel, Group, PendingCaptcha, User, WarnRecord, Whitelist
+from bot.database.models import BadWord, BlockedInstaller, ForceSubChannel, Group, PendingCaptcha, User, WarnRecord
 
 
 # ---------- Users ----------
@@ -20,24 +20,25 @@ async def get_or_create_user(user_id: int, username: str | None, first_name: str
         return user
 
 
-# ---------- Whitelist (کاربران مجاز به افزودن ربات به گروه) ----------
+# ---------- Blocked installers (کاربران منع‌شده از افزودن ربات به گروه) ----------
+# پیش‌فرض: هر کسی می‌تواند ربات را به گروه خود اضافه کند، مگر این‌که در این لیست مسدود شده باشد.
 
-async def is_whitelisted(user_id: int) -> bool:
+async def is_blocked_installer(user_id: int) -> bool:
     async with async_session() as session:
-        return await session.get(Whitelist, user_id) is not None
+        return await session.get(BlockedInstaller, user_id) is not None
 
 
-async def add_to_whitelist(user_id: int, added_by: int, note: str | None = None) -> None:
+async def block_installer(user_id: int, blocked_by: int, note: str | None = None) -> None:
     async with async_session() as session:
-        existing = await session.get(Whitelist, user_id)
+        existing = await session.get(BlockedInstaller, user_id)
         if existing is None:
-            session.add(Whitelist(user_id=user_id, added_by=added_by, note=note))
+            session.add(BlockedInstaller(user_id=user_id, blocked_by=blocked_by, note=note))
             await session.commit()
 
 
-async def remove_from_whitelist(user_id: int) -> bool:
+async def unblock_installer(user_id: int) -> bool:
     async with async_session() as session:
-        existing = await session.get(Whitelist, user_id)
+        existing = await session.get(BlockedInstaller, user_id)
         if existing is None:
             return False
         await session.delete(existing)
@@ -45,9 +46,9 @@ async def remove_from_whitelist(user_id: int) -> bool:
         return True
 
 
-async def list_whitelist() -> list[Whitelist]:
+async def list_blocked_installers() -> list[BlockedInstaller]:
     async with async_session() as session:
-        result = await session.execute(select(Whitelist))
+        result = await session.execute(select(BlockedInstaller))
         return list(result.scalars().all())
 
 
@@ -58,11 +59,11 @@ async def get_group(group_id: int) -> Group | None:
         return await session.get(Group, group_id)
 
 
-async def get_or_create_group(group_id: int, title: str | None, added_by: int | None, approved: bool) -> Group:
+async def get_or_create_group(group_id: int, title: str | None, added_by: int | None) -> Group:
     async with async_session() as session:
         group = await session.get(Group, group_id)
         if group is None:
-            group = Group(id=group_id, title=title, added_by=added_by, approved=approved)
+            group = Group(id=group_id, title=title, added_by=added_by)
             session.add(group)
         else:
             group.title = title or group.title
@@ -80,11 +81,9 @@ async def set_group_active(group_id: int, active: bool) -> None:
             await session.commit()
 
 
-async def list_approved_groups() -> list[Group]:
+async def list_active_groups() -> list[Group]:
     async with async_session() as session:
-        result = await session.execute(
-            select(Group).where(Group.approved.is_(True), Group.is_active.is_(True))
-        )
+        result = await session.execute(select(Group).where(Group.is_active.is_(True)))
         return list(result.scalars().all())
 
 

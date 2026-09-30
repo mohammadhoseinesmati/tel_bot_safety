@@ -10,10 +10,11 @@ from bot.database import repository as repo
 from bot.filters.is_owner import IsOwner
 from bot.keyboards.inline import (
     back_to_panel_keyboard,
+    owner_blocked_keyboard,
     owner_broadcast_confirm_keyboard,
     owner_channels_keyboard,
+    owner_groups_keyboard,
     owner_panel_main,
-    owner_whitelist_keyboard,
 )
 
 router = Router(name="owner_panel")
@@ -21,7 +22,7 @@ router.message.filter(F.chat.type == "private", IsOwner())
 
 
 class PanelStates(StatesGroup):
-    waiting_whitelist_id = State()
+    waiting_block_id = State()
     waiting_channel = State()
     waiting_broadcast_content = State()
 
@@ -35,44 +36,42 @@ async def cmd_panel(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.message(Command("approve"))
-async def cmd_approve(message: Message, command: CommandObject) -> None:
+@router.message(Command("block"))
+async def cmd_block(message: Message, command: CommandObject) -> None:
     if not command.args:
-        await message.answer("استفاده: <code>/approve USER_ID</code>")
+        await message.answer("استفاده: <code>/block USER_ID</code>")
         return
     try:
         target_id = int(command.args.strip().split()[0])
     except ValueError:
         await message.answer("شناسه کاربری نامعتبر است.")
         return
-    await repo.add_to_whitelist(target_id, message.from_user.id)
-    await message.answer(
-        f"✅ کاربر <code>{target_id}</code> اکنون مجاز است ربات را به گروه خود اضافه کند."
-    )
+    await repo.block_installer(target_id, message.from_user.id)
+    await message.answer(f"🚫 کاربر <code>{target_id}</code> دیگر نمی‌تواند ربات را به گروهی اضافه کند.")
 
 
-@router.message(Command("unapprove"))
-async def cmd_unapprove(message: Message, command: CommandObject) -> None:
+@router.message(Command("unblock"))
+async def cmd_unblock(message: Message, command: CommandObject) -> None:
     if not command.args:
-        await message.answer("استفاده: <code>/unapprove USER_ID</code>")
+        await message.answer("استفاده: <code>/unblock USER_ID</code>")
         return
     try:
         target_id = int(command.args.strip().split()[0])
     except ValueError:
         await message.answer("شناسه کاربری نامعتبر است.")
         return
-    removed = await repo.remove_from_whitelist(target_id)
-    await message.answer("✅ حذف شد." if removed else "این کاربر در لیست مجاز نبود.")
+    removed = await repo.unblock_installer(target_id)
+    await message.answer("✅ رفع مسدودیت شد." if removed else "این کاربر مسدود نبود.")
 
 
-@router.message(Command("whitelist"))
-async def cmd_whitelist(message: Message) -> None:
-    items = await repo.list_whitelist()
+@router.message(Command("blocked"))
+async def cmd_blocked(message: Message) -> None:
+    items = await repo.list_blocked_installers()
     if not items:
-        await message.answer("لیست کاربران مجاز خالی است.")
+        await message.answer("هیچ کاربری مسدود نشده است.")
         return
     lines = [f"• <code>{item.user_id}</code>" for item in items]
-    await message.answer("👥 کاربران مجاز به افزودن ربات به گروه:\n" + "\n".join(lines))
+    await message.answer("🚫 کاربران مسدودشده از افزودن ربات:\n" + "\n".join(lines))
 
 
 @router.message(Command("addchannel"))
@@ -111,6 +110,16 @@ async def cmd_channels(message: Message) -> None:
     await message.answer("📢 کانال‌های عضویت اجباری:\n" + "\n".join(lines))
 
 
+@router.message(Command("groups"))
+async def cmd_groups(message: Message) -> None:
+    groups = await repo.list_active_groups()
+    if not groups:
+        await message.answer("ربات در حال حاضر در هیچ گروهی فعال نیست.")
+        return
+    lines = [f"• {g.title or g.id} (<code>{g.id}</code>)" for g in groups]
+    await message.answer("📋 گروه‌هایی که ربات در آن‌ها فعال است:\n" + "\n".join(lines))
+
+
 @router.message(Command("broadcast"))
 async def cmd_broadcast(message: Message, command: CommandObject, bot: Bot) -> None:
     if not message.reply_to_message and not command.args:
@@ -121,9 +130,9 @@ async def cmd_broadcast(message: Message, command: CommandObject, bot: Bot) -> N
         )
         return
 
-    groups = await repo.list_approved_groups()
+    groups = await repo.list_active_groups()
     if not groups:
-        await message.answer("هیچ گروه تاییدشده‌ای برای ارسال تبلیغ وجود ندارد.")
+        await message.answer("هیچ گروه فعالی برای ارسال تبلیغ وجود ندارد.")
         return
 
     status = await message.answer(f"⏳ در حال ارسال به {len(groups)} گروه...")
@@ -144,12 +153,12 @@ async def cmd_broadcast(message: Message, command: CommandObject, bot: Bot) -> N
 
 @router.message(Command("stats"))
 async def cmd_stats(message: Message) -> None:
-    groups = await repo.list_approved_groups()
-    whitelist = await repo.list_whitelist()
+    groups = await repo.list_active_groups()
+    blocked = await repo.list_blocked_installers()
     await message.answer(
         "📊 <b>آمار ربات</b>\n\n"
         f"گروه‌های فعال: {len(groups)}\n"
-        f"کاربران مجاز افزودن به گروه: {len(whitelist)}"
+        f"کاربران مسدودشده: {len(blocked)}"
     )
 
 
@@ -172,50 +181,80 @@ async def panel_close(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-@router.callback_query(F.data == "panel:whitelist")
-async def panel_whitelist(callback: CallbackQuery) -> None:
-    items = await repo.list_whitelist()
-    text = "👥 <b>کاربران مجاز به افزودن ربات به گروه</b>\n\n"
-    text += "برای حذف روی کاربر بزنید." if items else "لیست خالی است. کاربر جدید اضافه کنید."
-    await callback.message.edit_text(text, reply_markup=owner_whitelist_keyboard(items))
+@router.callback_query(F.data == "panel:groups")
+async def panel_groups(callback: CallbackQuery) -> None:
+    groups = await repo.list_active_groups()
+    text = "📋 <b>گروه‌هایی که ربات در آن‌ها فعال است</b>\n\n"
+    text += "برای خارج کردن ربات از یک گروه، روی آن بزنید." if groups else "ربات در حال حاضر در هیچ گروهی فعال نیست."
+    await callback.message.edit_text(text, reply_markup=owner_groups_keyboard(groups))
     await callback.answer()
 
 
-@router.callback_query(F.data == "panel:wl_add")
-async def panel_whitelist_add(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.set_state(PanelStates.waiting_whitelist_id)
+@router.callback_query(F.data.startswith("panel:grp_leave:"))
+async def panel_group_leave(callback: CallbackQuery, bot: Bot) -> None:
+    chat_id = int(callback.data.split(":")[2])
+    try:
+        await bot.leave_chat(chat_id)
+    except Exception:
+        pass
+    await repo.set_group_active(chat_id, False)
+
+    groups = await repo.list_active_groups()
+    text = "📋 <b>گروه‌هایی که ربات در آن‌ها فعال است</b>\n\n"
+    text += "برای خارج کردن ربات از یک گروه، روی آن بزنید." if groups else "ربات در حال حاضر در هیچ گروهی فعال نیست."
+    await callback.message.edit_text(text, reply_markup=owner_groups_keyboard(groups))
+    await callback.answer("✅ ربات از گروه خارج شد.")
+
+
+@router.callback_query(F.data == "panel:blocked")
+async def panel_blocked(callback: CallbackQuery) -> None:
+    items = await repo.list_blocked_installers()
+    text = "🚫 <b>کاربران مسدودشده از افزودن ربات به گروه</b>\n\n"
+    text += (
+        "این کاربران نمی‌توانند ربات را به گروه خود اضافه کنند؛ اگر تلاش کنند ربات خودکار خارج می‌شود.\n\n"
+        "برای رفع مسدودیت روی کاربر بزنید."
+        if items
+        else "هیچ کاربری مسدود نشده است. به‌طور پیش‌فرض همه می‌توانند ربات را به گروه خود اضافه کنند."
+    )
+    await callback.message.edit_text(text, reply_markup=owner_blocked_keyboard(items))
+    await callback.answer()
+
+
+@router.callback_query(F.data == "panel:bl_add")
+async def panel_block_add(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(PanelStates.waiting_block_id)
     await callback.message.edit_text(
-        "🆔 شناسه عددی کاربر مورد نظر را ارسال کنید.\n\n"
+        "🆔 شناسه عددی کاربری که می‌خواهید مسدود کنید را ارسال کنید.\n\n"
         "برای گرفتن شناسه عددی، از خود کاربر بخواهید به @userinfobot پیام بدهد و عدد id را برایتان بفرستد.",
         reply_markup=back_to_panel_keyboard(),
     )
     await callback.answer()
 
 
-@router.message(PanelStates.waiting_whitelist_id)
-async def panel_whitelist_receive(message: Message, state: FSMContext) -> None:
+@router.message(PanelStates.waiting_block_id)
+async def panel_block_receive(message: Message, state: FSMContext) -> None:
     await state.clear()
     if not message.text or not message.text.strip().isdigit():
         await message.answer("❌ شناسه نامعتبر است. فقط عدد ارسال کنید.", reply_markup=back_to_panel_keyboard())
         return
     target_id = int(message.text.strip())
-    await repo.add_to_whitelist(target_id, message.from_user.id)
-    items = await repo.list_whitelist()
+    await repo.block_installer(target_id, message.from_user.id)
+    items = await repo.list_blocked_installers()
     await message.answer(
-        f"✅ کاربر <code>{target_id}</code> اضافه شد و اکنون می‌تواند ربات را به گروه خود اضافه کند.",
-        reply_markup=owner_whitelist_keyboard(items),
+        f"🚫 کاربر <code>{target_id}</code> مسدود شد و دیگر نمی‌تواند ربات را به گروهی اضافه کند.",
+        reply_markup=owner_blocked_keyboard(items),
     )
 
 
-@router.callback_query(F.data.startswith("panel:wl_del:"))
-async def panel_whitelist_delete(callback: CallbackQuery) -> None:
+@router.callback_query(F.data.startswith("panel:bl_del:"))
+async def panel_block_delete(callback: CallbackQuery) -> None:
     target_id = int(callback.data.split(":")[2])
-    await repo.remove_from_whitelist(target_id)
-    items = await repo.list_whitelist()
-    text = "👥 <b>کاربران مجاز به افزودن ربات به گروه</b>\n\n"
-    text += "برای حذف روی کاربر بزنید." if items else "لیست خالی است. کاربر جدید اضافه کنید."
-    await callback.message.edit_text(text, reply_markup=owner_whitelist_keyboard(items))
-    await callback.answer("✅ حذف شد.")
+    await repo.unblock_installer(target_id)
+    items = await repo.list_blocked_installers()
+    text = "🚫 <b>کاربران مسدودشده از افزودن ربات به گروه</b>\n\n"
+    text += "برای رفع مسدودیت روی کاربر بزنید." if items else "هیچ کاربری مسدود نشده است."
+    await callback.message.edit_text(text, reply_markup=owner_blocked_keyboard(items))
+    await callback.answer("✅ رفع مسدودیت شد.")
 
 
 @router.callback_query(F.data == "panel:channels")
@@ -269,13 +308,13 @@ async def panel_channel_delete(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "panel:stats")
 async def panel_stats(callback: CallbackQuery) -> None:
-    groups = await repo.list_approved_groups()
-    whitelist = await repo.list_whitelist()
+    groups = await repo.list_active_groups()
+    blocked = await repo.list_blocked_installers()
     channels = await repo.list_force_sub_channels()
     await callback.message.edit_text(
         "📊 <b>آمار ربات</b>\n\n"
         f"گروه‌های فعال: {len(groups)}\n"
-        f"کاربران مجاز افزودن به گروه: {len(whitelist)}\n"
+        f"کاربران مسدودشده: {len(blocked)}\n"
         f"کانال‌های عضویت اجباری: {len(channels)}",
         reply_markup=back_to_panel_keyboard(),
     )
@@ -284,7 +323,7 @@ async def panel_stats(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "panel:broadcast")
 async def panel_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
-    groups = await repo.list_approved_groups()
+    groups = await repo.list_active_groups()
     if not groups:
         await callback.answer("هیچ گروه فعالی برای ارسال وجود ندارد.", show_alert=True)
         return
@@ -299,7 +338,7 @@ async def panel_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(PanelStates.waiting_broadcast_content)
 async def panel_broadcast_receive(message: Message, state: FSMContext) -> None:
-    groups = await repo.list_approved_groups()
+    groups = await repo.list_active_groups()
     if not groups:
         await state.clear()
         await message.answer("هیچ گروه فعالی برای ارسال وجود ندارد.", reply_markup=back_to_panel_keyboard())
@@ -329,7 +368,7 @@ async def panel_broadcast_confirm(callback: CallbackQuery, state: FSMContext, bo
         await callback.answer("خطا: پیامی برای ارسال یافت نشد.", show_alert=True)
         return
 
-    groups = await repo.list_approved_groups()
+    groups = await repo.list_active_groups()
     await callback.message.edit_text(f"⏳ در حال ارسال به {len(groups)} گروه...")
     await callback.answer()
 

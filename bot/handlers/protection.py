@@ -63,7 +63,7 @@ async def guard_messages(message: Message, bot: Bot) -> None:
     if await is_group_admin(bot, message.chat.id, message.from_user.id):
         return
 
-    group = await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id, True)
+    group = await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id)
     text = message.text or message.caption or ""
 
     violated_lock = None

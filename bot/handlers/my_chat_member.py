@@ -29,14 +29,14 @@ async def on_bot_membership_changed(event: ChatMemberUpdated, bot: Bot) -> None:
 
 async def _handle_bot_added(event: ChatMemberUpdated, bot: Bot) -> None:
     adder_id = event.from_user.id
-    allowed = adder_id in config.owner_ids or await repo.is_whitelisted(adder_id)
+    is_blocked = adder_id not in config.owner_ids and await repo.is_blocked_installer(adder_id)
 
-    if not allowed:
+    if is_blocked:
         try:
             await bot.send_message(
                 event.chat.id,
-                "⛔️ این ربات فقط برای کاربران مجاز قابل استفاده است.\n"
-                "برای دریافت مجوز استفاده با پشتیبانی مالک ربات در ارتباط باشید.",
+                "⛔️ افزودن این ربات توسط شما مسدود شده است.\n"
+                "برای رفع مسدودیت با پشتیبانی مالک ربات در ارتباط باشید.",
             )
         except Exception:
             pass
@@ -45,10 +45,10 @@ async def _handle_bot_added(event: ChatMemberUpdated, bot: Bot) -> None:
             try:
                 await bot.send_message(
                     owner_id,
-                    "🚫 تلاش برای افزودن ربات به گروه توسط کاربر غیرمجاز:\n"
+                    "🚫 یک کاربر مسدودشده تلاش کرد ربات را به گروه اضافه کند:\n"
                     f"گروه: {event.chat.title} (<code>{event.chat.id}</code>)\n"
                     f"کاربر: {event.from_user.full_name} (<code>{adder_id}</code>)\n\n"
-                    f"برای تایید این کاربر:\n<code>/approve {adder_id}</code>",
+                    "ربات به‌طور خودکار از گروه خارج شد.",
                 )
             except Exception:
                 pass
@@ -59,7 +59,7 @@ async def _handle_bot_added(event: ChatMemberUpdated, bot: Bot) -> None:
             pass
         return
 
-    await repo.get_or_create_group(event.chat.id, event.chat.title, adder_id, approved=True)
+    await repo.get_or_create_group(event.chat.id, event.chat.title, adder_id)
 
     try:
         await bot.send_message(
@@ -76,7 +76,8 @@ async def _handle_bot_added(event: ChatMemberUpdated, bot: Bot) -> None:
                 owner_id,
                 "✅ ربات به یک گروه جدید اضافه شد:\n"
                 f"گروه: {event.chat.title} (<code>{event.chat.id}</code>)\n"
-                f"توسط: {event.from_user.full_name} (<code>{adder_id}</code>)",
+                f"توسط: {event.from_user.full_name} (<code>{adder_id}</code>)\n\n"
+                "در صورت نیاز به حذف ربات از این گروه، از پنل مدیریت (/panel ← گروه‌های ربات) استفاده کنید.",
             )
         except Exception:
             pass

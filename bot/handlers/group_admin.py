@@ -127,7 +127,7 @@ async def cmd_warn(message: Message, command: CommandObject, bot: Bot) -> None:
         return
     user_id, name, reason = target
 
-    group = await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id, True)
+    group = await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id)
     count = await repo.add_warning(message.chat.id, user_id)
 
     if count >= group.warn_limit:
@@ -171,7 +171,7 @@ async def cmd_warns(message: Message, command: CommandObject) -> None:
         await message.answer("کاربر مورد نظر را ریپلای کنید.")
         return
     user_id, name, _ = target
-    group = await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id, True)
+    group = await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id)
     count = await repo.get_warning_count(message.chat.id, user_id)
     await message.answer(f"⚠️ کاربر {name}: {count}/{group.warn_limit} اخطار")
 
@@ -245,7 +245,7 @@ async def cmd_setrules(message: Message, command: CommandObject) -> None:
     if not command.args:
         await message.answer("استفاده: <code>/setrules متن قوانین</code>")
         return
-    await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id, True)
+    await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id)
     await repo.update_group_settings(message.chat.id, rules_text=command.args)
     await message.answer("✅ قوانین گروه ذخیره شد.")
 
@@ -258,7 +258,7 @@ async def cmd_setwelcome(message: Message, command: CommandObject) -> None:
             "می‌توانید از {name} برای نام کاربر جدید استفاده کنید."
         )
         return
-    await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id, True)
+    await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id)
     await repo.update_group_settings(message.chat.id, welcome_text=command.args)
     await message.answer("✅ پیام خوش‌آمدگویی ذخیره شد.")
 
@@ -299,7 +299,7 @@ async def _handle_lock(message: Message, command: CommandObject, lock: bool) -> 
         )
         return
     field_name = LOCK_TYPES[key]
-    await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id, True)
+    await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id)
     await repo.update_group_settings(message.chat.id, **{field_name: lock})
     await message.answer(f"✅ {key} {'قفل شد' if lock else 'باز شد'}.")
 
@@ -316,7 +316,7 @@ async def cmd_unlock(message: Message, command: CommandObject) -> None:
 
 @router.message(Command("settings"))
 async def cmd_settings(message: Message) -> None:
-    group = await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id, True)
+    group = await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id)
     await message.answer("⚙️ تنظیمات محافظتی گروه:", reply_markup=group_settings_keyboard(group))
 
 

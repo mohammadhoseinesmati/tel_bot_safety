@@ -19,14 +19,14 @@ class User(Base):
     first_seen: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
-class Whitelist(Base):
-    """کاربرانی که مالک ربات اجازه داده تا ربات را به گروه خود اضافه کنند."""
+class BlockedInstaller(Base):
+    """کاربرانی که مالک ربات از افزودن ربات به گروه منع کرده است."""
 
-    __tablename__ = "whitelist"
+    __tablename__ = "blocked_installers"
 
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    added_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    blocked_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    blocked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
 
@@ -36,7 +36,6 @@ class Group(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)  # chat id
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     added_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    approved: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

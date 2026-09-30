@@ -16,7 +16,7 @@ router = Router(name="welcome")
 
 @router.message(F.chat.type.in_({"group", "supergroup"}), F.new_chat_members)
 async def on_new_members(message: Message, bot: Bot) -> None:
-    group = await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id, True)
+    group = await repo.get_or_create_group(message.chat.id, message.chat.title, message.from_user.id)
 
     for member in message.new_chat_members:
         if member.is_bot:
