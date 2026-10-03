@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -14,8 +15,8 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    first_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     first_seen: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -25,17 +26,17 @@ class BlockedInstaller(Base):
     __tablename__ = "blocked_installers"
 
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    blocked_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    blocked_by: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     blocked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
 class Group(Base):
     __tablename__ = "groups"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)  # chat id
-    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    added_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    added_by: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -51,8 +52,8 @@ class Group(Base):
     captcha_timeout: Mapped[int] = mapped_column(Integer, default=120)
 
     welcome_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    welcome_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    rules_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    welcome_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    rules_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     warn_limit: Mapped[int] = mapped_column(Integer, default=3)
     warn_action: Mapped[str] = mapped_column(String(20), default="mute")  # mute/kick/ban
@@ -91,8 +92,8 @@ class ForceSubChannel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     chat_id: Mapped[str] = mapped_column(String(64))  # مثل @channel یا -100xxxxxxxxxx
-    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    invite_link: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    invite_link: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
 class PendingCaptcha(Base):
